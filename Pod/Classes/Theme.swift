@@ -129,7 +129,7 @@ open class Theme: NSObject {
 			for style in styleList
 			{
 				// This is for sanity reasons. We don't want to query for values that "don't make sense".
-				if style.hasPrefix("hljs"), let themeStyle = themeDict[style]
+				if style.hasPrefix("hljs"), let themeStyle = themeDict[style.components(separatedBy: " ").first ?? style]
 				{
 					for (attrName, attrValue) in themeStyle
 					{
