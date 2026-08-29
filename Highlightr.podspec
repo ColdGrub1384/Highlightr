@@ -28,7 +28,7 @@ Pod::Spec.new do |s|
 
   s.source_files = 'Pod/Classes/**/*.{swift,h,m}'
 
-  s.resources  = ['Pod/Assets/Highlighter/highlight.min.js', 'Pod/Assets/styles/*.css']
+  s.resources  = ['Pod/Assets/Highlighter/highlight.js/highlight.min.js', 'Pod/Assets/styles/*.css']
 
   s.ios.frameworks = 'UIKit'
   s.osx.frameworks = 'AppKit'
