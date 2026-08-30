@@ -5,7 +5,11 @@
 //  Created by Bruno Philipe on 4/12/17.
 //
 
+#ifdef XCPROJ
+#import <HighlightrKit/HighlightrKit-Swift.h>
+#else
 #import <Highlightr/Highlightr-Swift.h>
+#endif
 
 #import "CodeAttributedString.h"
 #import "HighlightHints.h"
