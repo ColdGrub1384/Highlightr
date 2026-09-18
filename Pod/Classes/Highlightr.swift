@@ -34,13 +34,12 @@ import JavaScriptCore
     fileprivate let spanStartClose = "\">"
     fileprivate let spanEnd = "/span>"
     fileprivate let htmlEscape = try! NSRegularExpression(pattern: "&#?[a-zA-Z0-9]+?;", options: .caseInsensitive)
-    
     /**
      Default init method.
-     
+
      - returns: Highlightr instance.
      */
-	@objc public override init()
+    @objc public override init()
     {
         jsContext = JSContext()
         jsContext.evaluateScript("var window = {};")
@@ -49,34 +48,43 @@ import JavaScriptCore
         {
             abort()
         }
-        
+
         let hgJs = try! String.init(contentsOfFile: hgPath)
-        let value = jsContext.evaluateScript(hgJs)
+        let value = jsContext.evaluateScript(hgJs+" window.hljs = hljs; true")
         if !(value?.toBool())!
         {
             abort()
         }
 
-		super.init()
+        if let languageAddonsPath = bundle.path(forResource: "language-addons", ofType: "js"),
+           let code = try? String(contentsOfFile: languageAddonsPath) {
+            let value = jsContext.evaluateScript(code+" true;")
+            if !(value?.toBool())!
+            {
+                abort()
+            }
+        }
+
+        super.init()
 
         guard setTheme(to: "pojoaque") else
         {
             abort()
         }
-        
+
     }
 
-	/// Attributes that are added to the entire string after parsing. This is a useful place to change
-	/// line height and other global features of the document.
-	@objc open var documentAttributes: [NSAttributedString.Key: Any] = [:]
-    
+    /// Attributes that are added to the entire string after parsing. This is a useful place to change
+    /// line height and other global features of the document.
+    @objc open var documentAttributes: [NSAttributedString.Key: Any] = [:]
+
     /**
      Set the theme to use for highlighting.
-	
+
      - returns: true if it was possible to set the given theme, false otherwise
      */
     @discardableResult
-	@objc(setThemeToName:) open func setTheme(to name: String) -> Bool
+    @objc(setThemeToName:) open func setTheme(to name: String) -> Bool
     {
         guard let defTheme = bundle.path(forResource: name+".min", ofType: "css") else
         {
