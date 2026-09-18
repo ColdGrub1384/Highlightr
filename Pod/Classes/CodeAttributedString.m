@@ -20,213 +20,213 @@
 
 @implementation CodeAttributedString
 {
-	NSTextStorage *_stringStorage;
-	NSString *_language;
-	NSValue *_aggregateNeedHighlightRangeValue;
+    NSTextStorage *_stringStorage;
+    NSString *_language;
+    NSValue *_aggregateNeedHighlightRangeValue;
 }
 
 - (instancetype)init
 {
-	self = [super init];
-	if (self)
-	{
-		[self initializeMembers];
-		[self setupListeners];
-	}
-	return self;
+    self = [super init];
+    if (self)
+    {
+        [self initializeMembers];
+        [self setupListeners];
+    }
+    return self;
 }
 
 - (instancetype)initWithCoder:(NSCoder *)coder
 {
-	self = [super initWithCoder:coder];
-	if (self)
-	{
-		[self initializeMembers];
-		[self setupListeners];
-	}
-	return self;
+    self = [super initWithCoder:coder];
+    if (self)
+    {
+        [self initializeMembers];
+        [self setupListeners];
+    }
+    return self;
 }
 
 - (instancetype)initWithAttributedString:(NSAttributedString *)attrStr
 {
-	self = [super init];
-	if (self)
-	{
-		[self initializeMembers];
-		[_stringStorage appendAttributedString:attrStr];
-		[self setupListeners];
-	}
-	return self;
+    self = [super init];
+    if (self)
+    {
+        [self initializeMembers];
+        [_stringStorage appendAttributedString:attrStr];
+        [self setupListeners];
+    }
+    return self;
 }
 
 - (void)initializeMembers
 {
-	// By using a NSTextStorage object, the CodeAttributedString class behaves simply as a router, and also provides a ginormous
-	// performance enhancement compared to using something like a NSMutableAttributedString.
-	_stringStorage = [[NSTextStorage alloc] initWithString:@""];
-	_highlightr = [[Highlightr alloc] init];
-	_aggregateNeedHighlightRangeValue = nil;
+    // By using a NSTextStorage object, the CodeAttributedString class behaves simply as a router, and also provides a ginormous
+    // performance enhancement compared to using something like a NSMutableAttributedString.
+    _stringStorage = [[NSTextStorage alloc] initWithString:@""];
+    _highlightr = [[Highlightr alloc] init];
+    _aggregateNeedHighlightRangeValue = nil;
 }
 
 + (NSArray<NSAttributedStringKey> *)controlAttributeKeys
 {
-	static NSArray<NSAttributedStringKey> *controlAttributeKeys = nil;
+    static NSArray<NSAttributedStringKey> *controlAttributeKeys = nil;
 
-	if (controlAttributeKeys == nil)
-	{
-		controlAttributeKeys = @[HighlightCommentBlock, HighlightLanguageBlock, HighlightMultiLineElementBlock];
-	}
+    if (controlAttributeKeys == nil)
+    {
+        controlAttributeKeys = @[HighlightCommentBlock, HighlightLanguageBlock, HighlightMultiLineElementBlock];
+    }
 
-	return controlAttributeKeys;
+    return controlAttributeKeys;
 }
 
 - (NSString *)string
 {
-	return [_stringStorage string];
+    return [_stringStorage string];
 }
 
 - (NSDictionary<NSAttributedStringKey, id> *)attributesAtIndex:(NSUInteger)location effectiveRange:(NSRangePointer)range
 {
-	return [_stringStorage attributesAtIndex:location effectiveRange:range];
+    return [_stringStorage attributesAtIndex:location effectiveRange:range];
 }
 
 - (void)replaceCharactersInRange:(NSRange)range withString:(NSString *)string
 {
-	[self replaceCharactersInRange:range withString:string applyAttributes:YES];
+    [self replaceCharactersInRange:range withString:string applyAttributes:YES];
 }
 
 - (void)replaceCharactersInRange:(NSRange)range withAttributedString:(NSAttributedString *)attrString
 {
-	[self replaceCharactersInRange:range withAttributedString:attrString applyAttributes:YES];
+    [self replaceCharactersInRange:range withAttributedString:attrString applyAttributes:YES];
 }
 
 - (void)replaceCharactersInRange:(NSRange)range withString:(NSString *)string applyAttributes:(BOOL)applyAttributes
 {
-	if (range.location > 0 && applyAttributes)
-	{
-		NSAttributedString *attributedString = [self applyAttributesAtLocation:range.location - 1 toString:string];
-		[_stringStorage replaceCharactersInRange:range withAttributedString:attributedString];
-		[self edited:NSTextStorageEditedBoth range:range changeInLength:([attributedString length] - range.length)];
-	}
-	else
-	{
-		[_stringStorage replaceCharactersInRange:range withString:string];
-		[self edited:NSTextStorageEditedCharacters range:range changeInLength:([string length] - range.length)];
-	}
+    if (range.location > 0 && applyAttributes)
+    {
+        NSAttributedString *attributedString = [self applyAttributesAtLocation:range.location - 1 toString:string];
+        [_stringStorage replaceCharactersInRange:range withAttributedString:attributedString];
+        [self edited:NSTextStorageEditedBoth range:range changeInLength:([attributedString length] - range.length)];
+    }
+    else
+    {
+        [_stringStorage replaceCharactersInRange:range withString:string];
+        [self edited:NSTextStorageEditedCharacters range:range changeInLength:([string length] - range.length)];
+    }
 }
 
 - (void)replaceCharactersInRange:(NSRange)range withAttributedString:(NSAttributedString *)string applyAttributes:(BOOL)applyAttributes
 {
-	if (range.location > 0 && applyAttributes)
-	{
-		NSAttributedString *attributedString = [self applyAttributesAtLocation:range.location - 1 toAttributedString:string];
-		[_stringStorage replaceCharactersInRange:range withAttributedString:attributedString];
-		[self edited:NSTextStorageEditedBoth range:range changeInLength:([attributedString length] - range.length)];
-	}
-	else
-	{
-		[_stringStorage replaceCharactersInRange:range withAttributedString:string];
-		[self edited:NSTextStorageEditedBoth range:range changeInLength:([string length] - range.length)];
-	}
+    if (range.location > 0 && applyAttributes)
+    {
+        NSAttributedString *attributedString = [self applyAttributesAtLocation:range.location - 1 toAttributedString:string];
+        [_stringStorage replaceCharactersInRange:range withAttributedString:attributedString];
+        [self edited:NSTextStorageEditedBoth range:range changeInLength:([attributedString length] - range.length)];
+    }
+    else
+    {
+        [_stringStorage replaceCharactersInRange:range withAttributedString:string];
+        [self edited:NSTextStorageEditedBoth range:range changeInLength:([string length] - range.length)];
+    }
 }
 
 - (void)setAttributes:(NSDictionary<NSAttributedStringKey,id> *)attrs range:(NSRange)range
 {
-	[_stringStorage setAttributes:attrs range:range];
-	[self edited:NSTextStorageEditedAttributes range:range changeInLength:0];
+    [_stringStorage setAttributes:attrs range:range];
+    [self edited:NSTextStorageEditedAttributes range:range changeInLength:0];
 }
 
 - (NSAttributedString *)applyAttributesAtLocation:(NSUInteger)location toString:(NSString *)string
 {
-	NSDictionary *attributes = [_stringStorage attributesAtIndex:location effectiveRange:nil];
+    NSDictionary *attributes = [_stringStorage attributesAtIndex:location effectiveRange:nil];
 
-	if ([self enforcedFont] != nil)
-	{
-		NSMutableDictionary *mutableAttributes = [attributes mutableCopy];
-		[mutableAttributes setObject:[self enforcedFont] forKey:NSFontAttributeName];
-		attributes = mutableAttributes;
-	}
+    if ([self enforcedFont] != nil)
+    {
+        NSMutableDictionary *mutableAttributes = [attributes mutableCopy];
+        [mutableAttributes setObject:[self enforcedFont] forKey:NSFontAttributeName];
+        attributes = mutableAttributes;
+    }
 
-	return [[NSAttributedString alloc] initWithString:string attributes:attributes];
+    return [[NSAttributedString alloc] initWithString:string attributes:attributes];
 }
 
 - (NSAttributedString *)applyAttributesAtLocation:(NSUInteger)location toAttributedString:(NSAttributedString *)string
 {
-	NSMutableAttributedString *mutableString = [string mutableCopy];
-	NSDictionary *attributes = [_stringStorage attributesAtIndex:location effectiveRange:nil];
+    NSMutableAttributedString *mutableString = [string mutableCopy];
+    NSDictionary *attributes = [_stringStorage attributesAtIndex:location effectiveRange:nil];
 
-	if ([self enforcedFont] != nil)
-	{
-		NSMutableDictionary *mutableAttributes = [attributes mutableCopy];
-		[mutableAttributes setObject:[self enforcedFont] forKey:NSFontAttributeName];
-		attributes = mutableAttributes;
-	}
+    if ([self enforcedFont] != nil)
+    {
+        NSMutableDictionary *mutableAttributes = [attributes mutableCopy];
+        [mutableAttributes setObject:[self enforcedFont] forKey:NSFontAttributeName];
+        attributes = mutableAttributes;
+    }
 
-	[mutableString setAttributes:attributes range:NSMakeRange(0, [mutableString length])];
-	return mutableString;
+    [mutableString setAttributes:attributes range:NSMakeRange(0, [mutableString length])];
+    return mutableString;
 }
 
 - (void)processEditing
 {
-	[super processEditing];
+    [super processEditing];
 
-	if (_language && ([self editedMask] & NSTextStorageEditedCharacters))
-	{
-		[self setNeedsHighlightInRange:[self editedRange]];
-	}
+    if (_language && ([self editedMask] & NSTextStorageEditedCharacters))
+    {
+        [self setNeedsHighlightInRange:[self editedRange]];
+    }
 }
 
 - (void)setNeedsHighlight
 {
-	[self setNeedsHighlightInRange:NSMakeRange(0, [self length])];
+    [self setNeedsHighlightInRange:NSMakeRange(0, [self length])];
 }
 
 - (void)setNeedsHighlightInRange:(NSRange)range
 {
-	// If we have just called needsHighlight on another range, cancel that request before placing a new one:
-	if (_aggregateNeedHighlightRangeValue != nil)
-	{
-		[NSObject cancelPreviousPerformRequestsWithTarget:self
-												 selector:@selector(highlightRangeValue:)
-												   object:_aggregateNeedHighlightRangeValue];
+    // If we have just called needsHighlight on another range, cancel that request before placing a new one:
+    if (_aggregateNeedHighlightRangeValue != nil)
+    {
+        [NSObject cancelPreviousPerformRequestsWithTarget:self
+                                                 selector:@selector(highlightRangeValue:)
+                                                   object:_aggregateNeedHighlightRangeValue];
 
-		// Create a union for the total range needing highlight
-		NSRange aggregateRangeValue = _aggregateNeedHighlightRangeValue.rangeValue;
-		_aggregateNeedHighlightRangeValue = [NSValue valueWithRange:NSUnionRange(aggregateRangeValue, range)];
-	}
-	else
-	{
-		// Store the range needing highlight in case a second call comes before the timeout
-		_aggregateNeedHighlightRangeValue = [NSValue valueWithRange:range];
-	}
+        // Create a union for the total range needing highlight
+        NSRange aggregateRangeValue = _aggregateNeedHighlightRangeValue.rangeValue;
+        _aggregateNeedHighlightRangeValue = [NSValue valueWithRange:NSUnionRange(aggregateRangeValue, range)];
+    }
+    else
+    {
+        // Store the range needing highlight in case a second call comes before the timeout
+        _aggregateNeedHighlightRangeValue = [NSValue valueWithRange:range];
+    }
 
-	// Request highlight after a small delay:
-	[self performSelector:@selector(highlightRangeValue:) withObject:_aggregateNeedHighlightRangeValue afterDelay:0.2];
+    // Request highlight after a small delay:
+    [self performSelector:@selector(highlightRangeValue:) withObject:_aggregateNeedHighlightRangeValue afterDelay:0.2];
 }
 
 #pragma mark - Accessors
 
 - (void)setLanguage:(NSString *)language
 {
-	_language = language;
-	[self setNeedsHighlightInRange:NSMakeRange(0, [_stringStorage length])];
+    _language = language;
+    [self setNeedsHighlightInRange:NSMakeRange(0, [_stringStorage length])];
 }
 
 - (NSString *)language
 {
-	return _language;
+    return _language;
 }
 
 #pragma mark - Private
 
 - (void)setupListeners
 {
-	NSTextStorage __weak *stringStorage = _stringStorage;
-	
-	[[self highlightr] setThemeChanged:^(Theme *theme)
-	{
-		[self setNeedsHighlightInRange:NSMakeRange(0, [stringStorage length])];
-	}];
+    NSTextStorage __weak *stringStorage = _stringStorage;
+
+    [[self highlightr] setThemeChanged:^(Theme *theme)
+    {
+        [self setNeedsHighlightInRange:NSMakeRange(0, [stringStorage length])];
+    }];
 }
 
 /**
@@ -243,152 +243,158 @@
  */
 - (void)highlightRange:(NSRange)range
 {
-	// Bounds check
-	range = [[self string] boundedRangeFrom:range];
+    // Bounds check
+    range = [[self string] boundedRangeFrom:range];
 
-	if ([_highlightDelegate respondsToSelector:@selector(shouldHighlightRange:)] && ![_highlightDelegate shouldHighlightRange:range])
-	{
-		return;
-	}
+    if ([_highlightDelegate respondsToSelector:@selector(shouldHighlightRange:)] && ![_highlightDelegate shouldHighlightRange:range])
+    {
+        return;
+    }
 
-	NSString *configuredLanguage = _language != nil ? _language : @"";
-	
-	Highlightr __weak *highlightr = _highlightr;
-	NSTextStorage *stringStorage = [[NSTextStorage alloc] initWithAttributedString:_stringStorage];
-	NSString *string = [stringStorage string];
+    NSString *configuredLanguage = _language != nil ? _language : @"";
 
-	dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
-		NSRange highlightRange;
-		NSRange fullRange = NSMakeRange(0, [string length]);
-		NSString *language = configuredLanguage;
-		BOOL usingLanguageBoundaries = NO;
-		
-		if (!highlightr || !stringStorage)
-		{
-			// nil checking
-			return;
-		}
+    Highlightr __weak *highlightr = _highlightr;
+    NSTextStorage *stringStorage = [[NSTextStorage alloc] initWithAttributedString:_stringStorage];
+    NSString *string = [stringStorage string];
 
-		if (NSEqualRanges(range, fullRange))
-		{
-			highlightRange = range;
-		}
-		else
-		{
-			NSRange languageBounds = [stringStorage languageBoundariesForRange:range
-																	  language:language
-															 effectiveLanguage:&language];
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+        NSRange highlightRange;
+        NSRange fullRange = NSMakeRange(0, [string length]);
+        NSString *language = configuredLanguage;
+        BOOL usingLanguageBoundaries = NO;
 
-			if (languageBounds.location != NSNotFound && !NSEqualRanges(languageBounds, fullRange))
-			{
-				highlightRange = languageBounds;
-				usingLanguageBoundaries = YES;
-			}
-			else
-			{
-				NSRange hintedBounds = [HighlightHints highlightRangeFor:range
-																inString:[stringStorage string]
-															 forLanguage:language
-												isInCommentBlockBoundary:[stringStorage isRangeInCommentBoundary:range]];
+        if (!highlightr || !stringStorage)
+        {
+            // nil checking
+            return;
+        }
 
-				if (hintedBounds.location != NSNotFound)
-				{
-					highlightRange = [self contiguousElementRangeFor:hintedBounds];
-				}
-				else
-				{
-					highlightRange = [self contiguousElementRangeFor:[[stringStorage string] lineRangeForRange:range]];
-				}
-			}
-		}
+        if (NSEqualRanges(range, fullRange))
+        {
+            highlightRange = range;
+        }
+        else
+        {
+            NSRange languageBounds = [stringStorage languageBoundariesForRange:range
+                                                                      language:language
+                                                             effectiveLanguage:&language];
 
-		if (highlightRange.length == 0 || [language isEqualToString:@""])
-		{
-			[self sendDelegateMethodDidHighlightRange:range success:YES];
-			return;
-		}
+            if (languageBounds.location != NSNotFound && !NSEqualRanges(languageBounds, fullRange))
+            {
+                highlightRange = languageBounds;
+                usingLanguageBoundaries = YES;
+            }
+            else
+            {
+                // Ask highlight.js which multi-line constructs this language declares,
+                // then let HighlightHints pick the enclosing one (if any) around the edit.
+                NSArray<NSArray<NSString *> *> *delimiters =
+                    [highlightr multilineDelimitersForLanguage:language] ?: @[];
 
-		// Checks if this highlighting is still valid.
-		if (NSMaxRange(highlightRange) > [string length])
-		{
-			[self sendDelegateMethodDidHighlightRange:range success:NO];
-			return;
-		}
+                NSRange hintedBounds = [HighlightHints highlightRangeFor:range
+                                                                inString:[stringStorage string]
+                                                             forLanguage:language
+                                                      multilineDelimiters:delimiters
+                                                  isInCommentBlockBoundary:[stringStorage isRangeInCommentBoundary:range]];
 
-		NSString *line = [string substringWithRange:highlightRange];
-		NSMutableAttributedString *highlightedString = [highlightr highlight:line as:language fastRender:YES];
+                if (hintedBounds.location != NSNotFound)
+                {
+                    highlightRange = [self contiguousElementRangeFor:hintedBounds];
+                }
+                else
+                {
+                    highlightRange = [self contiguousElementRangeFor:[[stringStorage string] lineRangeForRange:range]];
+                }
+            }
+        }
 
-		if (highlightedString == nil)
-		{
-			[self sendDelegateMethodDidHighlightRange:range success:NO];
-			return;
-		}
-		else if (usingLanguageBoundaries && [highlightedString length] > 0
-				 && [highlightedString attribute:HighlightLanguageBlock atIndex:0 effectiveRange:nil] == nil
-				 && language != configuredLanguage)
-		{
-			NSString *effectiveLanguage = language;
-			
-			if (!effectiveLanguage && configuredLanguage)
-			{
-				effectiveLanguage = configuredLanguage;
-				
-				// This is useful for the automatic language hinting system in case the highlighted text
-				// contains some malformation. When this happens, highlight.js will not insert any language span
-				// blocks. In this case, we add a hintting manually. This will stop the highlighting from going
-				// backwards into the previous language section, which is not necessary.
-				// But in case it works, or the language changes, for example, this block will be skipped.
-				[highlightedString addAttribute:HighlightLanguageBlock
-										  value:language
-										  range:NSMakeRange(0, [highlightedString length])];
-			}
-		}
+        if (highlightRange.length == 0 || [language isEqualToString:@""])
+        {
+            [self sendDelegateMethodDidHighlightRange:range success:YES];
+            return;
+        }
 
-		dispatch_async(dispatch_get_main_queue(), ^{
-			NSTextStorage *originalStringStorage = self->_stringStorage;
+        // Checks if this highlighting is still valid.
+        if (NSMaxRange(highlightRange) > [string length])
+        {
+            [self sendDelegateMethodDidHighlightRange:range success:NO];
+            return;
+        }
 
-			// Checks if this highlighting is still valid.
-			if (NSMaxRange(highlightRange) > [originalStringStorage length])
-			{
-				[self sendDelegateMethodDidHighlightRange:range success:NO];
-				return;
-			}
+        NSString *line = [string substringWithRange:highlightRange];
+        NSMutableAttributedString *highlightedString = [highlightr highlight:line as:language fastRender:YES];
 
-			NSInteger originalRangeHash = [[[originalStringStorage string] substringWithRange:highlightRange] hash];
-			NSInteger highlightedRangeHash = [[highlightedString string] hash];
+        if (highlightedString == nil)
+        {
+            [self sendDelegateMethodDidHighlightRange:range success:NO];
+            return;
+        }
+        else if (usingLanguageBoundaries && [highlightedString length] > 0
+                 && [highlightedString attribute:HighlightLanguageBlock atIndex:0 effectiveRange:nil] == nil
+                 && language != configuredLanguage)
+        {
+            NSString *effectiveLanguage = language;
 
-			if (originalRangeHash != highlightedRangeHash)
-			{
-				// The string has changed. Bail out.
-				[self sendDelegateMethodDidHighlightRange:range success:NO];
-				return;
-			}
+            if (!effectiveLanguage && configuredLanguage)
+            {
+                effectiveLanguage = configuredLanguage;
 
-			[originalStringStorage replaceCharactersInRange:highlightRange withAttributedString:highlightedString];
-			[self edited:NSTextStorageEditedAttributes range:highlightRange changeInLength:0];
+                // This is useful for the automatic language hinting system in case the highlighted text
+                // contains some malformation. When this happens, highlight.js will not insert any language span
+                // blocks. In this case, we add a hintting manually. This will stop the highlighting from going
+                // backwards into the previous language section, which is not necessary.
+                // But in case it works, or the language changes, for example, this block will be skipped.
+                [highlightedString addAttribute:HighlightLanguageBlock
+                                          value:language
+                                          range:NSMakeRange(0, [highlightedString length])];
+            }
+        }
 
-			[self sendDelegateMethodDidHighlightRange:range success:YES];
-		});
-	});
+        dispatch_async(dispatch_get_main_queue(), ^{
+            NSTextStorage *originalStringStorage = self->_stringStorage;
+
+            // Checks if this highlighting is still valid.
+            if (NSMaxRange(highlightRange) > [originalStringStorage length])
+            {
+                [self sendDelegateMethodDidHighlightRange:range success:NO];
+                return;
+            }
+
+            NSInteger originalRangeHash = [[[originalStringStorage string] substringWithRange:highlightRange] hash];
+            NSInteger highlightedRangeHash = [[highlightedString string] hash];
+
+            if (originalRangeHash != highlightedRangeHash)
+            {
+                // The string has changed. Bail out.
+                [self sendDelegateMethodDidHighlightRange:range success:NO];
+                return;
+            }
+
+            [originalStringStorage replaceCharactersInRange:highlightRange withAttributedString:highlightedString];
+            [self edited:NSTextStorageEditedAttributes range:highlightRange changeInLength:0];
+
+            [self sendDelegateMethodDidHighlightRange:range success:YES];
+        });
+    });
 }
 
 /// Private helper method so that `highlightRange:` can be invoked using `performSelector`.
 - (void)highlightRangeValue:(NSValue *)value
 {
-	_aggregateNeedHighlightRangeValue = nil;
-	[self highlightRange:[value rangeValue]];
+    _aggregateNeedHighlightRangeValue = nil;
+    [self highlightRange:[value rangeValue]];
 }
 
 - (void)sendDelegateMethodDidHighlightRange:(NSRange)range success:(BOOL)success
 {
-	if (_highlightDelegate && [_highlightDelegate respondsToSelector:@selector(didHighlightRange:success:)])
-	{
-		NSObject<HighlightDelegate> __weak *delegate = _highlightDelegate;
-		
-		dispatch_async(dispatch_get_main_queue(), ^{
-			[delegate didHighlightRange:range success:success];
-		});
-	}
+    if (_highlightDelegate && [_highlightDelegate respondsToSelector:@selector(didHighlightRange:success:)])
+    {
+        NSObject<HighlightDelegate> __weak *delegate = _highlightDelegate;
+
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [delegate didHighlightRange:range success:success];
+        });
+    }
 }
 
 @end

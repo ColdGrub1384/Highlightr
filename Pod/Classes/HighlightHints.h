@@ -7,18 +7,23 @@
 
 #import <Foundation/Foundation.h>
 
+NS_ASSUME_NONNULL_BEGIN
+
 @interface HighlightHints : NSObject
 
-/**
- Helper method to look for highlight boundaries in source code. Uses `lowerHighlightBoundaryForRange` and
- `upperHighlightBoundaryForRange` to search for boundaries, and depending on their results produces a valid range.
- In case all fails, returns the paragraph range of the given range.
-
- @param range The original highlight range. Will search before and after this range.
- @param string The content to search. `range` should be fully contained in this string.
- @param language The name of the source languge. For example, "css".
- @return A valid highlight range containing at least the paragraph range of `range`.
- */
-+ (NSRange)highlightRangeFor:(NSRange)range inString:(nonnull NSString *)string forLanguage:(nullable NSString *)language isInCommentBlockBoundary:(BOOL)isCommentBlockBoundary;
+/// Returns a hint range that should be highlighted when the user edits `range`. The
+/// hint is derived from the `delimiters` list — an array of `[beginSource, endSource]`
+/// regex-source pairs obtained from highlight.js for the current language — together
+/// with language-specific fallbacks (CSS `{}` blocks, comment-block boundaries).
+///
+/// `delimiters` may be empty; in that case the method falls back to the current line
+/// (or, when `isCommentBlockBoundary` is `YES`, to the tail of the document).
++ (NSRange)highlightRangeFor:(NSRange)range
+                    inString:(nonnull NSString *)string
+                 forLanguage:(nullable NSString *)language
+          multilineDelimiters:(nonnull NSArray<NSArray<NSString *> *> *)delimiters
+      isInCommentBlockBoundary:(BOOL)isCommentBlockBoundary;
 
 @end
+
+NS_ASSUME_NONNULL_END

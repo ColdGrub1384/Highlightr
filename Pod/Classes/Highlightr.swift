@@ -20,12 +20,15 @@ import JavaScriptCore
             themeChanged?(theme)
         }
     }
-    
+
     /// This block will be called every time the theme changes.
     @objc open var themeChanged : ((Theme) -> Void)?
 
     internal var multilineClasses: [String] = ["hljs-regexp", "hljs-string"]
-    
+
+    /// Cache of multi-line delimiter pairs, keyed by language name.
+    private var multilineDelimiterCache: [String: [[String]]] = [:]
+
     fileprivate let jsContext : JSContext
     fileprivate let hljs = "window.hljs"
     fileprivate let bundle : Bundle
@@ -93,17 +96,110 @@ import JavaScriptCore
         let themeString = try! String.init(contentsOfFile: defTheme)
         theme =  Theme(themeString: themeString)
 
-        
+
         return true
     }
-    
+
+    /**
+     Returns, for the given language, a list of `[beginSource, endSource]` regular-expression
+     source strings for every multi-line capable construct declared by highlight.js.
+
+     A construct is considered multi-line capable when its mode declares both a `begin`
+     and an `end` regex, and neither pattern source embeds a literal `\n`. This captures
+     block comments (`/* ... */`), Python triple-quoted strings (`""" ... """`), C#
+     verbatim strings (`@" ... "`), Ruby heredocs whose mode has explicit delimiters,
+     and anything else a language declares with begin/end pairs — without maintaining
+     any hardcoded per-language table.
+
+     The result is cached per language, so repeated calls are cheap.
+
+     - parameter language: The highlight.js language name or alias.
+     - returns: An array of `[begin, end]` regex-source pairs. Empty if the language is
+                unknown or declares no multi-line constructs.
+     */
+    @objc(multilineDelimitersForLanguage:)
+    open func multilineDelimiters(for language: String) -> [[String]]
+    {
+        if let cached = multilineDelimiterCache[language]
+        {
+            return cached
+        }
+
+        let escaped = language
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+
+        // The grammar is a graph, not a tree: modes reuse mode objects and a mode's
+        // `contains` array can transitively include the same mode again. We guard the
+        // walk with a visited list (indexOf-based, since WeakSet support inside
+        // JavaScriptCore varies) and skip anything that isn't a plain object.
+        let command = """
+        (function(lang){
+          var def = hljs.getLanguage(lang);
+          if (!def) { return []; }
+          var seenModes = [];
+          var seenPairs = {};
+          var out = [];
+          function markSeen(m){
+            if (seenModes.indexOf(m) !== -1) { return false; }
+            seenModes.push(m);
+            return true;
+          }
+          function push(bs, es){
+            var key = bs + '\\u0000' + es;
+            if (!seenPairs[key]) { seenPairs[key] = true; out.push([bs, es]); }
+          }
+          function walk(list){
+            if (!list || typeof list.length !== 'number') { return; }
+            for (var i = 0; i < list.length; i++) {
+              var m = list[i];
+              if (!m || typeof m !== 'object') { continue; }
+              if (!markSeen(m)) { continue; }
+              if (m.begin && m.end) {
+                var bs = (m.begin && m.begin.source !== undefined) ? m.begin.source : String(m.begin);
+                var es = (m.end   && m.end.source   !== undefined) ? m.end.source   : String(m.end);
+                // Skip constructs whose delimiters explicitly forbid line breaks.
+                if (bs.indexOf('\\n') === -1 && es.indexOf('\\n') === -1) {
+                  push(bs, es);
+                }
+              }
+              if (m.contains)  { walk(m.contains); }
+              if (m.variants)  { walk(m.variants); }
+              // Note: we deliberately do NOT walk `m.parent` or `m.starts`. The
+              // `parent` back-pointer is what usually forms the cycle, and `starts`
+              // modes are sub-parsers of the enclosing mode, not independent
+              // multi-line constructs a user would edit "inside" of.
+            }
+          }
+          walk(def.contains);
+          return out;
+        })("\(escaped)");
+        """
+
+        let result: [[String]]
+        if let raw = jsContext.evaluateScript(command)?.toArray()
+        {
+            result = raw.compactMap { item in
+                guard let pair = item as? [String], pair.count >= 2 else { return nil }
+                return pair
+            }
+        }
+        else
+        {
+            result = []
+        }
+
+        multilineDelimiterCache[language] = result
+        return result
+    }
+
     /**
      Takes a String and returns a NSAttributedString with the given language highlighted.
-     
+
      - parameter code:           Code to highlight.
      - parameter languageName:   Language name or alias. Set to `nil` to use auto detection.
      - parameter fastRender:     Defaults to true - When *true* will use the custom made html parser rather than Apple's solution.
-     
+
      - returns: NSAttributedString with the detected code highlighted.
      */
     @objc open func highlight(_ code: String, as languageName: String? = nil, fastRender: Bool = true) -> NSMutableAttributedString?
@@ -119,46 +215,46 @@ import JavaScriptCore
         {
             command = String.init(format: "%@.highlight(\"%@\",\"%@\",true).value;", hljs, languageName, fixedCode)
         }
-		else
+        else
         {
             // language auto detection
             command = String.init(format: "%@.highlightAuto(\"%@\").value;", hljs, fixedCode)
         }
-        
+
         let res = jsContext.evaluateScript(command)
         guard var string = res!.toString() else
         {
             return nil
         }
-        
+
         let returnString : NSMutableAttributedString
         if fastRender
         {
             returnString = processHTMLString(string, defaultLanguage: languageName)
         }
-		else
+        else
         {
-        	string = "<style>"+theme.lightTheme+"</style><pre><code class=\"hljs\">"+string+"</code></pre>"
-			let opt: [NSAttributedString.DocumentReadingOptionKey : Any] = [
-				.documentType: NSAttributedString.DocumentType.html,
-				.characterEncoding: String.Encoding.utf8
-			]
+            string = "<style>"+theme.lightTheme+"</style><pre><code class=\"hljs\">"+string+"</code></pre>"
+            let opt: [NSAttributedString.DocumentReadingOptionKey : Any] = [
+                .documentType: NSAttributedString.DocumentType.html,
+                .characterEncoding: String.Encoding.utf8
+            ]
 
-			let data = string.data(using: String.Encoding.utf8)!
-			returnString = try! NSMutableAttributedString(data:data, options:opt, documentAttributes:nil)
+            let data = string.data(using: String.Encoding.utf8)!
+            returnString = try! NSMutableAttributedString(data:data, options:opt, documentAttributes:nil)
         }
 
-		if documentAttributes.count > 0
-		{
-			returnString.addAttributes(documentAttributes, range: NSMakeRange(0, returnString.length))
-		}
-        
+        if documentAttributes.count > 0
+        {
+            returnString.addAttributes(documentAttributes, range: NSMakeRange(0, returnString.length))
+        }
+
         return returnString
     }
-    
+
     /**
      Returns a list of all the available themes.
-     
+
      - returns: Array of Strings
      */
     @objc open func availableThemes() -> [String]
@@ -168,13 +264,13 @@ import JavaScriptCore
         for path in paths {
             result.append(path.lastPathComponent.replacingOccurrences(of: ".min.css", with: ""))
         }
-        
+
         return result
     }
-    
+
     /**
      Returns a list of all supported languages.
-     
+
      - returns: Array of Strings
      */
     @objc open func supportedLanguages() -> [String]
@@ -183,17 +279,17 @@ import JavaScriptCore
         let res = jsContext.evaluateScript(command)
         return res!.toArray() as! [String]
     }
-	
-	private enum LanguageUpperBound
-	{
-		// Means the language runs all the way to the end of the text buffer.
-		case toEnd
-		
-		// Means the language runs for a certain length.
-		case length(Int)
-		
-		// Means the upper bound is still being calculated.
-		case undefined
+
+    private enum LanguageUpperBound
+    {
+        // Means the language runs all the way to the end of the text buffer.
+        case toEnd
+
+        // Means the language runs for a certain length.
+        case length(Int)
+
+        // Means the upper bound is still being calculated.
+        case undefined
 
         var isUndefined: Bool
         {
@@ -204,10 +300,10 @@ import JavaScriptCore
 
             return false
         }
-	}
-    
+    }
+
     //Private & Internal
-	fileprivate func processHTMLString(_ string: String, defaultLanguage: String?) -> NSMutableAttributedString
+    fileprivate func processHTMLString(_ string: String, defaultLanguage: String?) -> NSMutableAttributedString
     {
         let scanner = Scanner(string: string)
         scanner.charactersToBeSkipped = nil
@@ -218,14 +314,14 @@ import JavaScriptCore
 
         var languageMap: [Int: (upperBound: LanguageUpperBound, language: String)] = [:]
         var multilineElementMap: [Int: (upperBound: LanguageUpperBound, className: String)] = [:]
-		var didPopLanguage = false
-		
-		if let language = defaultLanguage
-		{
-			// First we add a default highlight attribute to the entire range.
-			languageMap[0] = (.toEnd, language)
-		}
-        
+        var didPopLanguage = false
+
+        if let language = defaultLanguage
+        {
+            // First we add a default highlight attribute to the entire range.
+            languageMap[0] = (.toEnd, language)
+        }
+
         while !scanner.isAtEnd
         {
             var ended = false
@@ -236,30 +332,30 @@ import JavaScriptCore
                     ended = true
                 }
             }
-            
+
             if let scannedString = scannedString, scannedString.length > 0
-			{
+            {
                 if didPopLanguage, let startLocation = languageMap.keys.max()
-				{
+                {
                     // We found the end of a language range. We need to calculate its length. Language attributes are
                     // cascading, so they end either before or with their "partent" attributes. In the end this makes
                     // no difference, as NSAttributedString only stores different versions of the same attribute in one
                     // dimension (there can be no overlap between attributes of the same key).
-					languageMap[startLocation]?.upperBound = .length(resultString.length - startLocation)
-					didPopLanguage = false
-				}
-				
-				let attrScannedString = theme.applyStyleToString(scannedString as String, styleList: propStack)
-				resultString.append(attrScannedString)
+                    languageMap[startLocation]?.upperBound = .length(resultString.length - startLocation)
+                    didPopLanguage = false
+                }
 
-				if ended
+                let attrScannedString = theme.applyStyleToString(scannedString as String, styleList: propStack)
+                resultString.append(attrScannedString)
+
+                if ended
                 {
                     continue
                 }
             }
-            
+
             scanner.scanLocation += 1
-            
+
             let string = scanner.string as NSString
             let nextCharRange = string.rangeOfComposedCharacterSequence(at: UInt(scanner.scanLocation), count: 1)
             let nextChar = string.substring(with: nextCharRange);
@@ -269,9 +365,9 @@ import JavaScriptCore
                 scanner.scanUpTo(spanStartClose, into:&scannedString)
                 scanner.scanLocation += (spanStartClose as NSString).length
 
-				if let property: String = scannedString as String?
-				{
-					propStack.append(property)
+                if let property: String = scannedString as String?
+                {
+                    propStack.append(property)
 
                     if multilineClasses.contains(property)
                     {
@@ -280,14 +376,14 @@ import JavaScriptCore
                         // multi-language map.
                         multilineElementMap[resultString.length] = (.undefined, property)
                     }
-					else if !property.hasPrefix("hljs"), property != "undefined"
-					{
-						// If the class name doesn't have the "hsjs" prefix, it is a language name, like "php".
-						// We need to prepare to insert a language attibute, and begin by registering the current
+                    else if !property.hasPrefix("hljs"), property != "undefined"
+                    {
+                        // If the class name doesn't have the "hsjs" prefix, it is a language name, like "php".
+                        // We need to prepare to insert a language attibute, and begin by registering the current
                         // location and detected language name into the language map.
-						languageMap[resultString.length] = (.undefined, property)
-					}
-				}
+                        languageMap[resultString.length] = (.undefined, property)
+                    }
+                }
             }
             else if nextChar == "/"
             {
@@ -320,45 +416,45 @@ import JavaScriptCore
                     }
                 }
                 if !removed.hasPrefix("hljs"), removed != "undefined"
-				{
+                {
                     // If we found a closing tag without the "hsjs" prefix, it is a language name, like "php". We need
                     // to update a language registration on language map, and so we set didPopLanguage to true.
-					didPopLanguage = true
-				}
+                    didPopLanguage = true
+                }
             }
-			else
+            else
             {
                 let attrScannedString = theme.applyStyleToString("<", styleList: propStack)
                 resultString.append(attrScannedString)
                 scanner.scanLocation += 1
             }
-            
+
             scannedString = nil
         }
-		
-		// We can now apply the language attributes.
-		for lowerBound in languageMap.keys.sorted()
-		{
-			guard let (upperBound, language) = languageMap[lowerBound] else
-			{
-				continue
-			}
-			
-			let rangeLength: Int
-			
-			switch upperBound
-			{
-			case .length(let length):
-				rangeLength = length
-			
-			default:
-				rangeLength = resultString.length - lowerBound
-			}
+
+        // We can now apply the language attributes.
+        for lowerBound in languageMap.keys.sorted()
+        {
+            guard let (upperBound, language) = languageMap[lowerBound] else
+            {
+                continue
+            }
+
+            let rangeLength: Int
+
+            switch upperBound
+            {
+            case .length(let length):
+                rangeLength = length
+
+            default:
+                rangeLength = resultString.length - lowerBound
+            }
 
             // We have detected a span with a language-name class. To aid when highlighting changed text,
             // we add a custom attribute to the string with the language name.
-			resultString.applyLanguageAttribute(language: language, range: NSMakeRange(lowerBound, rangeLength))
-		}
+            resultString.applyLanguageAttribute(language: language, range: NSMakeRange(lowerBound, rangeLength))
+        }
 
         // We can now apply the multi-line attributes.
         for lowerBound in multilineElementMap.keys.sorted()
@@ -383,7 +479,7 @@ import JavaScriptCore
                                       value: className,
                                       range: NSMakeRange(lowerBound, rangeLength))
         }
-        
+
         let results = htmlEscape.matches(in: resultString.string,
                                                options: [.reportCompletion],
                                                range: NSMakeRange(0, resultString.length))
@@ -410,27 +506,27 @@ private var colorIterator: IndexingIterator<[UIColor]>? = nil
 
 var nextDebugColor: UIColor
 {
-	if let color = colorIterator?.next()
-	{
-		return color
-	}
-	else
-	{
-		var iterator = colors.makeIterator()
-		colorIterator = iterator
-		return iterator.next()!
-	}
+    if let color = colorIterator?.next()
+    {
+        return color
+    }
+    else
+    {
+        var iterator = colors.makeIterator()
+        colorIterator = iterator
+        return iterator.next()!
+    }
 }
 #endif
 
 private extension NSMutableAttributedString
 {
-	func applyLanguageAttribute(language: String, range: NSRange)
-	{
-		addAttribute(.HighlightLanguageBlock, value: language, range: range)
-		
-		#if SYNTAX_DEBUG
-		addAttribute(.backgroundColor, value: nextDebugColor, range: range)
-		#endif
-	}
+    func applyLanguageAttribute(language: String, range: NSRange)
+    {
+        addAttribute(.HighlightLanguageBlock, value: language, range: range)
+
+        #if SYNTAX_DEBUG
+        addAttribute(.backgroundColor, value: nextDebugColor, range: range)
+        #endif
+    }
 }
